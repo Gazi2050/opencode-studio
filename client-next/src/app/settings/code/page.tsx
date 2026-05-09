@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApp } from "@/lib/context";
-import { getSystemTools } from "@/lib/api";
-import type { SystemToolInfo } from "@/types";
+import { getApiBaseUrl, getPaths, getProjectRules, getSystemTools } from "@/lib/api";
+import type { PathsInfo, RulesResponse, SystemToolInfo } from "@/types";
 import { PageHelp } from "@/components/page-help";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,19 +44,30 @@ export default function CodeSettingsPage() {
   const { config, saveConfig } = useApp();
   const [tools, setTools] = useState<SystemToolInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backendUrl, setBackendUrl] = useState<string | null>(null);
+  const [paths, setPaths] = useState<PathsInfo | null>(null);
+  const [rules, setRules] = useState<RulesResponse | null>(null);
 
   useEffect(() => {
-    const loadTools = async () => {
+    const loadDetails = async () => {
       try {
-        const data = await getSystemTools();
-        setTools(data);
+        const [apiBaseUrl, pathsData, rulesData, toolsData] = await Promise.all([
+          getApiBaseUrl(),
+          getPaths(),
+          getProjectRules(),
+          getSystemTools(),
+        ]);
+        setBackendUrl(apiBaseUrl);
+        setPaths(pathsData);
+        setRules(rulesData);
+        setTools(toolsData);
       } catch (err: any) {
-        toast.error(err?.message || "Failed to load system tools");
+        toast.error(err?.message || "Failed to load code settings metadata");
       } finally {
         setLoading(false);
       }
     };
-    loadTools();
+    loadDetails();
   }, []);
 
   const toolMap = useMemo(() => {
@@ -93,7 +104,46 @@ export default function CodeSettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Resolution Context</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            This shows the live backend URL, the active OpenCode config path, and the rules file the backend resolved.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Backend URL</div>
+            <div className="font-mono break-all">{loading ? "Loading..." : backendUrl || "Unknown"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Active Config</div>
+            <div className="font-mono break-all">{loading ? "Loading..." : paths?.current || "Unknown"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Detected Config</div>
+            <div className="font-mono break-all">{loading ? "Loading..." : paths?.detected || "None"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Project Rules</div>
+            <div className="font-mono break-all">{loading ? "Loading..." : rules?.path || "None"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Rules Source</div>
+            <div className="font-mono break-all">{loading ? "Loading..." : rules?.source || "none"}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">PATH Strategy</div>
+            <div className="font-mono break-all">Backend shell lookup (`which` on WSL/Linux, `where` on Windows)</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>LSP Servers</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Detection uses the backend shell PATH. If a binary lives in `~/.nvm`, `~/.local/bin`, `~/.cargo/bin`, or
+            similar, start OpenCode Studio from a shell that exports that PATH.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {LSP_LIST.map((item) => {
@@ -105,9 +155,18 @@ export default function CodeSettingsPage() {
                   <div className="font-medium">{item.label}</div>
                   <div className="text-xs text-muted-foreground">{item.id}</div>
                 </div>
-                <Badge variant={tool?.available ? "secondary" : "outline"}>
-                  {loading ? "Checking" : tool?.available ? "Detected" : "Not Found"}
-                </Badge>
+                <div className="space-y-1">
+                  <Badge variant={tool?.available ? "secondary" : "outline"}>
+                    {loading ? "Checking" : tool?.available ? "Detected in PATH" : "Not Found in PATH"}
+                  </Badge>
+                  <div className="text-[11px] text-muted-foreground break-all">
+                    {loading
+                      ? "Looking up via backend `which`"
+                      : tool?.available
+                        ? tool.path
+                        : `Searched via backend \`which ${item.tool}\``}
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={!cfg?.disabled}
@@ -129,7 +188,7 @@ export default function CodeSettingsPage() {
       <Card>
         <CardHeader>
           <PageHelp title="Code Settings" docUrl="https://opencode.ai/docs" docTitle="LSP & Formatter Manager" />
-          <CardTitle>LSP Servers</CardTitle>
+          <CardTitle>Formatters</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {FORMATTER_LIST.map((item) => {
@@ -141,9 +200,18 @@ export default function CodeSettingsPage() {
                   <div className="font-medium">{item.label}</div>
                   <div className="text-xs text-muted-foreground">{item.id}</div>
                 </div>
-                <Badge variant={tool?.available ? "secondary" : "outline"}>
-                  {loading ? "Checking" : tool?.available ? "Detected" : "Not Found"}
-                </Badge>
+                <div className="space-y-1">
+                  <Badge variant={tool?.available ? "secondary" : "outline"}>
+                    {loading ? "Checking" : tool?.available ? "Detected in PATH" : "Not Found in PATH"}
+                  </Badge>
+                  <div className="text-[11px] text-muted-foreground break-all">
+                    {loading
+                      ? "Looking up via backend `which`"
+                      : tool?.available
+                        ? tool.path
+                        : `Searched via backend \`which ${item.tool}\``}
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={!cfg?.disabled}
