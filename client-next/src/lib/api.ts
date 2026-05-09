@@ -5,48 +5,80 @@ const BACKEND_BASE_PORT = 1920;
 const MAX_PORT_TRIES = 10;
 
 let cachedApiUrl: string | null = null;
+let resolvingApiUrl: Promise<string> | null = null;
+
+async function probeBackendUrl(url: string): Promise<string | null> {
+    try {
+        await axios.get(`${url}/health`, { timeout: 500 });
+        return url;
+    } catch {
+        return null;
+    }
+}
 
 async function discoverBackendPort(): Promise<string> {
     if (cachedApiUrl) return cachedApiUrl;
+    if (resolvingApiUrl) return resolvingApiUrl;
 
-    for (let i = 0; i < MAX_PORT_TRIES; i++) {
-        const port = BACKEND_BASE_PORT + i;
-        const testUrl = `http://127.0.0.1:${port}/api`;
+    resolvingApiUrl = (async () => {
+        const preferred = [envApiUrl, DEFAULT_API_URL].filter(Boolean) as string[];
+        for (const candidate of preferred) {
+            const ok = await probeBackendUrl(candidate);
+            if (ok) {
+                cachedApiUrl = ok;
+                return ok;
+            }
+        }
 
-        try {
-            const response = await axios.get(`${testUrl}/health`, { timeout: 500 });
-            cachedApiUrl = testUrl;
-            return testUrl;
-        } catch {}
+        for (let i = 0; i < MAX_PORT_TRIES; i++) {
+            const port = BACKEND_BASE_PORT + i;
+            const testUrl = `http://127.0.0.1:${port}/api`;
+            const ok = await probeBackendUrl(testUrl);
+            if (ok) {
+                cachedApiUrl = ok;
+                return ok;
+            }
+        }
+
+        throw new Error(`Cannot find backend server on ports ${BACKEND_BASE_PORT}-${BACKEND_BASE_PORT + MAX_PORT_TRIES - 1}`);
+    })();
+
+    try {
+        return await resolvingApiUrl;
+    } finally {
+        resolvingApiUrl = null;
     }
-
-    throw new Error(`Cannot find backend server on ports ${BACKEND_BASE_PORT}-${BACKEND_BASE_PORT + MAX_PORT_TRIES - 1}`);
 }
 
 const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 const CLIENT_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.17.0';
 
+const DEFAULT_API_URL = 'http://127.0.0.1:1920/api';
+
 const api = axios.create({
-  baseURL: envApiUrl || 'http://127.0.0.1:1920/api',
+  baseURL: envApiUrl || DEFAULT_API_URL,
   headers: {
     'Content-Type': 'application/json',
     'X-Client-Version': CLIENT_VERSION,
   },
 });
 
-if (!envApiUrl) {
-    discoverBackendPort().then((url) => {
-        api.defaults.baseURL = url;
-    }).catch(() => {});
-}
+api.interceptors.request.use(async (config) => {
+  try {
+    const url = await discoverBackendPort();
+    config.baseURL = url;
+  } catch {
+    config.baseURL = config.baseURL || envApiUrl || DEFAULT_API_URL;
+  }
+  return config;
+});
 
 export const PROTOCOL_URL = 'opencodestudio://launch';
 
 export const MIN_SERVER_VERSION = '2.2.2';
 
 export async function getApiBaseUrl(): Promise<string> {
-  if (api.defaults.baseURL) return api.defaults.baseURL;
   try {
     const url = await discoverBackendPort();
     api.defaults.baseURL = url;
