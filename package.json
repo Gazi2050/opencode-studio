@@ -1,5 +1,5 @@
 {
-  "name": "opencode-studio",
+  "name": "opencode-studio-server",
   "version": "2.3.0",
   "private": false,
   "scripts": {
