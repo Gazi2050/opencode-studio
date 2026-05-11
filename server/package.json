@@ -1,15 +1,11 @@
 {
-  "name": "opencode-studio-server",
-  "version": "2.2.2",
+  "name": "@opencode-studio/server",
+  "version": "2.3.0",
   "description": "Backend server for OpenCode Studio - manages opencode configurations",
   "main": "index.js",
-  "bin": {
-    "opencode-studio-server": "cli.js"
-  },
   "scripts": {
     "start": "node index.js",
     "register": "node register-protocol.js",
-    "postinstall": "node register-protocol.js",
     "test": "vitest run"
   },
   "keywords": [

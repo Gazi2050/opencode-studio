@@ -2,12 +2,19 @@
   "name": "opencode-studio-server",
   "version": "2.3.0",
   "private": false,
+  "workspaces": [
+    "server",
+    "client-next"
+  ],
+  "bin": {
+    "opencode-studio-server": "server/cli.js"
+  },
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && npm start",
     "client": "cd client-next && npm run dev",
     "build": "cd client-next && npm run build",
-    "postinstall": "cd server && npm install && cd ../client-next && npm install"
+    "postinstall": "node server/register-protocol.js"
   },
   "dependencies": {
     "concurrently": "^8.2.2"
