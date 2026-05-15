@@ -14,33 +14,6 @@ import { useTranslations } from "next-intl";
 const FIRST_LOAD_KEY = "opencode-studio-loaded";
 const LAUNCH_ATTEMPT_KEY = "opencode-studio-launch-attempt";
 
-function CrimeSceneTape() {
-  const t = useTranslations('appShell');
-  const tapeContent = t('crimeTape');
-  const repeatedContent = tapeContent.repeat(8);
-  
-  return (
-    <a
-      href="https://github.com/Microck/opencode-studio/issues"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="fixed top-6 -left-20 z-50 rotate-[-35deg] origin-center cursor-pointer hover:opacity-90 transition-opacity"
-      style={{ width: '400px' }}
-    >
-      <div className="bg-yellow-400 dark:bg-yellow-500 border-y-2 border-black py-2 overflow-hidden shadow-lg">
-        <div 
-          className="whitespace-nowrap font-extrabold text-xs uppercase tracking-widest text-black"
-          style={{
-            animation: 'crime-tape-scroll 8s linear infinite',
-          }}
-        >
-          {repeatedContent}
-        </div>
-      </div>
-    </a>
-  );
-}
-
 function useIsFirstLoad() {
   const [isFirst, setIsFirst] = useState(true);
 
@@ -91,7 +64,6 @@ function DisconnectedLanding({ isFirstLoad }: { isFirstLoad: boolean }) {
 
 return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-background overflow-hidden">
-      <CrimeSceneTape />
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
@@ -132,7 +104,7 @@ return (
               <div className="space-y-1">
                 <p className="text-xs font-medium">{t('landing.step2Title')}</p>
                 <code className="text-[11px] block bg-background border border-border p-2 rounded font-mono break-all">
-npm install -g opencode-studio-server@2.2.1
+npm install -g opencode-studio-server@2.4.1
                 </code>
               </div>
 
@@ -171,7 +143,7 @@ npm install -g opencode-studio-server@2.2.1
       <div className={`absolute bottom-4 text-xs text-muted-foreground ${isFirstLoad ? "landing-delay-6" : "landing-delay-fast-6"}`}>
         {showUpdateHint ? (
           <span className="animate-fade-in">
-            {t('landing.notConnectingPrefix')} <code className="bg-muted px-1.5 py-0.5 rounded">npm install -g opencode-studio-server@2.2.1</code>
+            {t('landing.notConnectingPrefix')} <code className="bg-muted px-1.5 py-0.5 rounded">npm install -g opencode-studio-server@2.4.1</code>
           </span>
         ) : (
           t('landing.waiting')
