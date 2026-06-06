@@ -11,9 +11,7 @@
 <p align="center">a local gui for managing opencode configurations. toggle mcp servers, edit skills, manage plugins, handle auth - no json editing required.</p>
 
 <p align="center">
-  <a href="https://github.com/Microck/opencode-studio/releases"><img src="https://img.shields.io/github/v/release/Microck/opencode-studio?display_name=tag&style=flat-square&label=release&color=000000" alt="release"></a>
   <a href="https://www.npmjs.com/package/opencode-studio-server"><img src="https://img.shields.io/npm/dt/opencode-studio-server?style=flat-square&label=downloads&color=000000" alt="downloads"></a>
-  <a href="https://github.com/Microck/opencode-studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Microck/opencode-studio/ci.yml?branch=master&style=flat-square&label=ci&color=000000" alt="ci"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-mit-000000?style=flat-square" alt="license"></a>
 </p>
 
