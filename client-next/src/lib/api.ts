@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { OpencodeConfig, SkillFile, PluginFile, SkillInfo, PluginInfo, AuthInfo, AuthProvider, StudioConfig, PluginModelsConfig, AuthProfilesInfo, Preset, PresetConfig, AgentConfig, AgentInfo, AgentsResponse, SystemToolInfo, RulesResponse, MCPConfig, OhMyPreferences, OhMyConfigResponse, GitHubBackupStatus, GitHubBackupResult, GitHubBackupConfig, ConfigProviderId, ConfigProviderCreatePayload, ConfigProviderCreateProfilePayload, ConfigProviderCreateProfileResult, ConfigProviderCreateResult, ConfigProviderDetail, ConfigProviderExportResult, ConfigProviderImportPayload, ConfigProviderImportResult, ConfigProviderProfilesResult, ConfigProviderSavePayload, ConfigProviderSaveResult, ConfigProviderSummary, ConfigProviderSwitchProfilePayload, ConfigProviderSwitchProfileResult, ConfigProviderValidationPayload, ConfigProviderValidationResult } from '@/types';
+import type { OpencodeConfig, SkillFile, PluginFile, SkillInfo, PluginInfo, AuthInfo, AuthProvider, AuthProfilesInfo, Preset, PresetConfig, AgentConfig, AgentInfo, AgentsResponse, SystemToolInfo, RulesResponse, MCPConfig, OhMyPreferences, OhMyConfigResponse, GitHubBackupStatus, GitHubBackupResult, GitHubBackupConfig, ConfigProviderId, ConfigProviderCreatePayload, ConfigProviderCreateProfilePayload, ConfigProviderCreateProfileResult, ConfigProviderCreateResult, ConfigProviderDetail, ConfigProviderExportResult, ConfigProviderImportPayload, ConfigProviderImportResult, ConfigProviderProfilesResult, ConfigProviderSavePayload, ConfigProviderSaveResult, ConfigProviderSummary, ConfigProviderSwitchProfilePayload, ConfigProviderSwitchProfileResult, ConfigProviderValidationPayload, ConfigProviderValidationResult } from '@/types';
 
 const BACKEND_BASE_PORT = 1920;
 const MAX_PORT_TRIES = 10;
@@ -7,10 +7,44 @@ const MAX_PORT_TRIES = 10;
 let cachedApiUrl: string | null = null;
 let resolvingApiUrl: Promise<string> | null = null;
 
+type LocalNetworkFetchInit = RequestInit & {
+    targetAddressSpace?: 'local' | 'loopback';
+};
+
+function getTargetAddressSpace(url: string): 'local' | 'loopback' | undefined {
+    try {
+        const { hostname } = new URL(url);
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') {
+            return 'loopback';
+        }
+    } catch {}
+
+    return undefined;
+}
+
+async function fetchWithTimeout(url: string, timeout: number, init: LocalNetworkFetchInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const targetAddressSpace = getTargetAddressSpace(url);
+
+    try {
+        return await fetch(url, {
+            ...init,
+            signal: controller.signal,
+            ...(targetAddressSpace ? { targetAddressSpace } : {}),
+        } as LocalNetworkFetchInit);
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
 async function probeBackendUrl(url: string): Promise<string | null> {
     try {
-        await axios.get(`${url}/health`, { timeout: 500 });
-        return url;
+        const response = await fetchWithTimeout(`${url}/health`, 500, {
+            cache: 'no-store',
+            mode: 'cors',
+        });
+        return response.ok ? url : null;
     } catch {
         return null;
     }
@@ -114,8 +148,12 @@ export interface VersionCheck {
 
 export async function checkHealth(): Promise<boolean> {
   try {
-    await api.get('/health', { timeout: 3000 });
-    return true;
+    const baseUrl = await getApiBaseUrl();
+    const response = await fetchWithTimeout(`${baseUrl}/health`, 3000, {
+      cache: 'no-store',
+      mode: 'cors',
+    });
+    return response.ok;
   } catch {
     return false;
   }
@@ -123,7 +161,15 @@ export async function checkHealth(): Promise<boolean> {
 
 export async function checkVersion(): Promise<VersionCheck> {
   try {
-    const { data } = await api.get<HealthResponse>('/health', { timeout: 3000 });
+    const baseUrl = await getApiBaseUrl();
+    const response = await fetchWithTimeout(`${baseUrl}/health`, 3000, {
+      cache: 'no-store',
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      return { connected: false, version: null, isCompatible: false, minRequired: MIN_SERVER_VERSION };
+    }
+    const data = await response.json() as HealthResponse;
     const version = data.version || null;
     const isCompatible = version ? compareVersions(version, MIN_SERVER_VERSION) : false;
     return { connected: true, version, isCompatible, minRequired: MIN_SERVER_VERSION };
@@ -208,7 +254,7 @@ export async function getDebugInfo() {
   }
 }
 
-export async function getDebugPaths(): Promise<any> {
+export async function getDebugPaths(): Promise<PathsInfo> {
   const { data } = await api.get('/paths');
   return data;
 }
@@ -337,8 +383,8 @@ export async function getCommands(): Promise<Record<string, { template: string }
   return data;
 }
 
-export async function getModels(): Promise<{ providers: any[]; models: any[] }> {
-  const { data } = await api.get<{ providers: any[]; models: any[] }>('/models');
+export async function getModels(): Promise<{ providers: unknown[]; models: unknown[] }> {
+  const { data } = await api.get<{ providers: unknown[]; models: unknown[] }>('/models');
   return data;
 }
 
@@ -364,7 +410,8 @@ export async function saveCommand(name: string, template: string): Promise<void>
 export async function deleteCommand(name: string): Promise<void> {
   const config = await getConfig();
   if (config.command) {
-      const { [name]: removed, ...rest } = config.command;
+      const rest = { ...config.command };
+      delete rest[name];
       await saveConfig({ ...config, command: rest });
   }
 }

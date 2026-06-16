@@ -10,6 +10,7 @@ try { ({ DatabaseSync } = require('node:sqlite')); } catch {}
 const { spawn, exec, execSync } = require('child_process');
 const yaml = require('js-yaml');
 const configProviders = require('./lib/config-providers');
+const { corsOptions, setLocalNetworkAccessHeaders } = require('./lib/cors-policy');
 
 const pkg = require('./package.json');
 const profileManager = require('./profile-manager');
@@ -133,31 +134,8 @@ app.use((req, res, next) => {
     next();
 });
 
-const ALLOWED_ORIGINS = [
-        'http://192.168.10.100:1080',
-    /^http:\/\/192\.168\..+:108\d$/,
-    /^http:\/\/192\.168\.10\.\d{1,3}:108\d$/,
-    'http://localhost:1080',
-    'http://127.0.0.1:1080',
-    /^http:\/\/localhost:108\d$/,
-    /^http:\/\/127\.0\.0\.1:108\d$/,
-    'https://opencode-studio.vercel.app',
-    'https://opencode.micr.dev',
-    'https://opencode-studio.micr.dev',
-    /\.vercel\.app$/,
-    /\.micr\.dev$/,
-];
-
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        const allowed = ALLOWED_ORIGINS.some(o =>
-            o instanceof RegExp ? o.test(origin) : o === origin
-        );
-        callback(null, allowed);
-    },
-    credentials: true,
-}));
+app.use(setLocalNetworkAccessHeaders);
+app.use(cors(corsOptions));
 
 app.use((req, res, next) => {
     const clientVersion = req.headers['x-client-version'];

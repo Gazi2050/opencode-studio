@@ -1,0 +1,8 @@
+
+# local-backend
+- label: hosted studio pages request local network access before loading the local backend
+  command: grep -q 'local-network-access=(self)' client-next/next.config.ts && grep -q 'targetAddressSpace' client-next/src/lib/api.ts
+  tags: [implemented]
+- label: local backend allows private network access preflights from hosted studio origins
+  command: node --test server/lib/cors-policy.test.js
+  tags: [implemented]
