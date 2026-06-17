@@ -10,6 +10,10 @@ let resolvingApiUrl: Promise<string> | null = null;
 type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: 'local' };
 
 function getTargetAddressSpace(url: string): 'local' | undefined {
+    if (typeof window === 'undefined' || window.location.protocol !== 'https:') {
+        return undefined;
+    }
+
     try {
         const { hostname } = new URL(url);
         if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') {
@@ -90,6 +94,7 @@ const DEFAULT_API_URL = 'http://127.0.0.1:1920/api';
 
 const api = axios.create({
   baseURL: envApiUrl || DEFAULT_API_URL,
+  adapter: 'fetch',
   headers: {
     'Content-Type': 'application/json',
     'X-Client-Version': CLIENT_VERSION,
@@ -103,6 +108,16 @@ api.interceptors.request.use(async (config) => {
   } catch {
     config.baseURL = config.baseURL || envApiUrl || DEFAULT_API_URL;
   }
+
+  const requestUrl = new URL(config.url ?? '', config.baseURL).toString();
+  const targetAddressSpace = getTargetAddressSpace(requestUrl);
+  if (targetAddressSpace) {
+    config.fetchOptions = {
+      ...(config.fetchOptions ?? {}),
+      targetAddressSpace,
+    };
+  }
+
   return config;
 });
 

@@ -15,3 +15,9 @@
 - label: browser fetches to loopback local backends use the Chrome-supported local target address space annotation
   command: grep -q "type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: 'local' };" client-next/src/lib/api.ts && grep -q "return 'local';" client-next/src/lib/api.ts && ! grep -q "'loopback'" client-next/src/lib/api.ts
   tags: [implemented]
+- label: browser Axios API calls to local backends use the fetch adapter with the local target address space annotation
+  command: grep -q "adapter: 'fetch'" client-next/src/lib/api.ts && grep -q 'config.fetchOptions' client-next/src/lib/api.ts && grep -q 'targetAddressSpace' client-next/src/lib/api.ts
+  tags: [implemented]
+- label: local development pages do not add local network target address space annotations when calling the local backend
+  command: grep -q 'window.location.protocol !== .https:.' client-next/src/lib/api.ts && grep -q 'return undefined;' client-next/src/lib/api.ts
+  tags: [implemented]
