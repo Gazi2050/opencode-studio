@@ -110,7 +110,7 @@ api.interceptors.request.use(async (config) => {
 
 export const PROTOCOL_URL = 'opencodestudio://launch';
 
-export const MIN_SERVER_VERSION = '2.2.2';
+export const MIN_SERVER_VERSION = '2.4.2';
 
 export async function getApiBaseUrl(): Promise<string> {
   try {

@@ -7,7 +7,8 @@ import { PROTOCOL_URL } from "@/lib/api";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Play, ExternalLink, Loader, Alert } from "@nsmr/pixelart-react";
+import { Play, ExternalLink } from "@nsmr/pixelart-react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -20,6 +21,9 @@ function useIsFirstLoad() {
   useEffect(() => {
     const hasLoaded = sessionStorage.getItem(FIRST_LOAD_KEY);
     if (hasLoaded) {
+      // Reading sessionStorage in the state initializer can make the hydrated
+      // client markup disagree with the server render on repeat visits.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsFirst(false);
     } else {
       sessionStorage.setItem(FIRST_LOAD_KEY, "1");
@@ -30,23 +34,18 @@ function useIsFirstLoad() {
 }
 
 function useLaunchAttempt() {
-  const [hasAttempted, setHasAttempted] = useState(false);
-
-  useEffect(() => {
-    const attempted = localStorage.getItem(LAUNCH_ATTEMPT_KEY) === "1";
-    setHasAttempted(attempted);
-  }, []);
-
   return {
-    hasAttempted,
-    markAttempt: () => localStorage.setItem(LAUNCH_ATTEMPT_KEY, "1"),
-    clearAttempt: () => localStorage.removeItem(LAUNCH_ATTEMPT_KEY),
+    markAttempt: () => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(LAUNCH_ATTEMPT_KEY, "1");
+      }
+    },
   };
 }
 
 function DisconnectedLanding({ isFirstLoad }: { isFirstLoad: boolean }) {
   const [showUpdateHint, setShowUpdateHint] = useState(false);
-  const { hasAttempted, markAttempt } = useLaunchAttempt();
+  const { markAttempt } = useLaunchAttempt();
   const t = useTranslations('appShell');
 
   useEffect(() => {
@@ -62,7 +61,7 @@ function DisconnectedLanding({ isFirstLoad }: { isFirstLoad: boolean }) {
   const animClass = isFirstLoad ? "animate-logo-entrance" : "animate-logo-entrance-fast";
   const contentClass = isFirstLoad ? "animate-content-appear" : "animate-content-appear-fast";
 
-return (
+  return (
     <div className="fixed inset-0 flex flex-col items-center justify-center bg-background overflow-hidden">
       <div className="absolute top-4 right-4">
         <ThemeToggle />
@@ -76,7 +75,14 @@ return (
       
       <div className={`flex flex-col items-center gap-8 max-w-md text-center px-4 mt-48 ${contentClass}`}>
         <div className="space-y-2">
-          <img src="/OpencodeStudioText1line.png" alt="" className={`h-auto w-full ${isFirstLoad ? "landing-delay-1" : "landing-delay-fast-1"}`} />
+          <Image
+            src="/OpencodeStudioText1line.png"
+            alt=""
+            width={2238}
+            height={231}
+            priority
+            className={`h-auto w-full ${isFirstLoad ? "landing-delay-1" : "landing-delay-fast-1"}`}
+          />
           <p className={`text-muted-foreground text-lg ${isFirstLoad ? "landing-delay-2" : "landing-delay-fast-2"}`}>
             {t('landing.subtitle')}
           </p>
@@ -104,11 +110,11 @@ return (
               <div className="space-y-1">
                 <p className="text-xs font-medium">{t('landing.step2Title')}</p>
                 <code className="text-[11px] block bg-background border border-border p-2 rounded font-mono break-all">
-npm install -g opencode-studio-server@2.4.1
+                  npm install -g opencode-studio-server@2.4.2
                 </code>
               </div>
 
-            <div className="pt-2 border-t border-border/30">
+              <div className="pt-2 border-t border-border/30">
                 <p className="text-[10px] text-primary/70 font-semibold italic">
                   {t('landing.importantPrefix')} <code className="bg-background px-1 rounded not-italic">opencode --version</code> {t('landing.importantSuffix')}
                 </p>
@@ -143,7 +149,7 @@ npm install -g opencode-studio-server@2.4.1
       <div className={`absolute bottom-4 text-xs text-muted-foreground ${isFirstLoad ? "landing-delay-6" : "landing-delay-fast-6"}`}>
         {showUpdateHint ? (
           <span className="animate-fade-in">
-            {t('landing.notConnectingPrefix')} <code className="bg-muted px-1.5 py-0.5 rounded">npm install -g opencode-studio-server@2.4.1</code>
+            {t('landing.notConnectingPrefix')} <code className="bg-muted px-1.5 py-0.5 rounded">npm install -g opencode-studio-server@2.4.2</code>
           </span>
         ) : (
           t('landing.waiting')
