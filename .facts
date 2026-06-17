@@ -9,3 +9,6 @@
 - label: hosted studio pages require backend version 2.4.2 or newer for local network access
   command: grep -q "MIN_SERVER_VERSION = '2.4.2'" client-next/src/lib/api.ts && grep -q 'opencode-studio-server@2.4.2' client-next/src/components/app-shell.tsx client-next/src/components/update-required-modal.tsx && grep -q '"version": "2.4.2"' package.json server/package.json
   tags: [implemented]
+- label: hosted studio pages allow fine-grained local-network and loopback-network permissions for browser local backend requests
+  command: grep -q 'local-network=(self)' client-next/next.config.ts && grep -q 'loopback-network=(self)' client-next/next.config.ts
+  tags: [implemented]
