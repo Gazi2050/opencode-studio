@@ -7,15 +7,13 @@ const MAX_PORT_TRIES = 10;
 let cachedApiUrl: string | null = null;
 let resolvingApiUrl: Promise<string> | null = null;
 
-type LocalNetworkFetchInit = RequestInit & {
-    targetAddressSpace?: 'local' | 'loopback';
-};
+type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: 'local' };
 
-function getTargetAddressSpace(url: string): 'local' | 'loopback' | undefined {
+function getTargetAddressSpace(url: string): 'local' | undefined {
     try {
         const { hostname } = new URL(url);
         if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') {
-            return 'loopback';
+            return 'local';
         }
     } catch {}
 

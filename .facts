@@ -12,3 +12,6 @@
 - label: hosted studio pages allow fine-grained local-network and loopback-network permissions for browser local backend requests
   command: grep -q 'local-network=(self)' client-next/next.config.ts && grep -q 'loopback-network=(self)' client-next/next.config.ts
   tags: [implemented]
+- label: browser fetches to loopback local backends use the Chrome-supported local target address space annotation
+  command: grep -q "type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: 'local' };" client-next/src/lib/api.ts && grep -q "return 'local';" client-next/src/lib/api.ts && ! grep -q "'loopback'" client-next/src/lib/api.ts
+  tags: [implemented]
