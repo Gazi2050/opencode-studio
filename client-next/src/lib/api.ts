@@ -7,16 +7,48 @@ const MAX_PORT_TRIES = 10;
 let cachedApiUrl: string | null = null;
 let resolvingApiUrl: Promise<string> | null = null;
 
-type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: 'local' };
+type TargetAddressSpace = 'local' | 'loopback';
+type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: TargetAddressSpace };
 
-function getTargetAddressSpace(url: string): 'local' | undefined {
+function normalizeHostname(hostname: string): string {
+    return hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1');
+}
+
+function isLoopbackHost(hostname: string): boolean {
+    return hostname === 'localhost' || hostname === '::1' || /^127(?:\.\d{1,3}){3}$/.test(hostname);
+}
+
+function isLocalNetworkHost(hostname: string): boolean {
+    if (hostname.endsWith('.local')) return true;
+
+    const ipv4Parts = hostname.split('.');
+    if (ipv4Parts.length === 4) {
+        const octets = ipv4Parts.map((part) => Number(part));
+        if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+            return false;
+        }
+
+        const [first, second] = octets;
+        return first === 10 ||
+            (first === 172 && second >= 16 && second <= 31) ||
+            (first === 192 && second === 168) ||
+            (first === 169 && second === 254);
+    }
+
+    return hostname.startsWith('fc') || hostname.startsWith('fd') || hostname.startsWith('fe80:');
+}
+
+function getTargetAddressSpace(url: string): TargetAddressSpace | undefined {
     if (typeof window === 'undefined' || window.location.protocol !== 'https:') {
         return undefined;
     }
 
     try {
-        const { hostname } = new URL(url);
-        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') {
+        const hostname = normalizeHostname(new URL(url).hostname);
+        if (isLoopbackHost(hostname)) {
+            return 'loopback';
+        }
+        if (isLocalNetworkHost(hostname)) {
             return 'local';
         }
     } catch {}
