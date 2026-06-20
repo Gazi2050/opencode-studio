@@ -7,8 +7,7 @@ const MAX_PORT_TRIES = 10;
 let cachedApiUrl: string | null = null;
 let resolvingApiUrl: Promise<string> | null = null;
 
-type TargetAddressSpace = 'local' | 'loopback';
-type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: TargetAddressSpace };
+type LocalNetworkFetchInit = RequestInit & { targetAddressSpace?: 'local' };
 
 function normalizeHostname(hostname: string): string {
     return hostname.toLowerCase().replace(/^\[(.*)\]$/, '$1');
@@ -38,7 +37,7 @@ function isLocalNetworkHost(hostname: string): boolean {
     return hostname.startsWith('fc') || hostname.startsWith('fd') || hostname.startsWith('fe80:');
 }
 
-function getTargetAddressSpace(url: string): TargetAddressSpace | undefined {
+function getTargetAddressSpace(url: string): 'local' | undefined {
     if (typeof window === 'undefined' || window.location.protocol !== 'https:') {
         return undefined;
     }
@@ -46,7 +45,7 @@ function getTargetAddressSpace(url: string): TargetAddressSpace | undefined {
     try {
         const hostname = normalizeHostname(new URL(url).hostname);
         if (isLoopbackHost(hostname)) {
-            return 'loopback';
+            return 'local';
         }
         if (isLocalNetworkHost(hostname)) {
             return 'local';

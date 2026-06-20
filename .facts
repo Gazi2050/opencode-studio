@@ -21,3 +21,17 @@
 - label: local development pages do not add local network target address space annotations when calling the local backend
   command: grep -q 'window.location.protocol !== .https:.' client-next/src/lib/api.ts && grep -q 'return undefined;' client-next/src/lib/api.ts
   tags: [implemented]
+
+# custom-providers
+- label: settings exposes a graphical custom providers and models editor
+  command: grep -q 'CustomProviderModelEditor' client-next/src/app/settings/page.tsx && grep -q 'useTranslations("settings.customProviders")' client-next/src/components/custom-provider-model-editor.tsx
+  tags: [spec, implemented]
+- label: custom model edits can set default model, small model, and provider-scoped models
+  command: grep -q 'model:' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'small_model:' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'models:' client-next/src/components/custom-provider-model-editor.tsx
+  tags: [spec, implemented]
+- label: custom provider edits save to the canonical top-level provider config
+  command: grep -q 'provider:' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'config.provider' client-next/src/components/custom-provider-model-editor.tsx
+  tags: [spec, implemented]
+- label: custom provider saves preserve unedited OpenCode provider and model fields
+  command: grep -q 'source: provider' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'source: model' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'provider.source' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'model.source' client-next/src/components/custom-provider-model-editor.tsx
+  tags: [spec, implemented]
