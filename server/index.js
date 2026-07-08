@@ -11,6 +11,13 @@ const { spawn, exec, execSync } = require('child_process');
 const yaml = require('js-yaml');
 const configProviders = require('./lib/config-providers');
 const { corsOptions, setLocalNetworkAccessHeaders } = require('./lib/cors-policy');
+const {
+    assertSafeBackupResourceNames,
+    isSafeAgentName,
+    isSafeAuthProfileName,
+    isSafePluginName,
+    isSafeSkillName,
+} = require('./lib/resource-names');
 
 const pkg = require('./package.json');
 const profileManager = require('./profile-manager');
@@ -22,6 +29,7 @@ const ERROR_CODES = {
   INVALID_PERMISSION: "Invalid permission value. Must be ask, allow, or deny.",
   MISSING_AGENT_NAME: "Missing agent name",
   INVALID_AGENT_NAME: "Invalid agent name",
+  INVALID_PLUGIN_NAME: "Invalid plugin name",
   NO_CONFIG_PATH: "No config path found",
   INVALID_NAME_OR_DURATION: "Invalid name or duration",
   INVALID_STATE: "Invalid state",
@@ -40,6 +48,7 @@ const ERROR_CODES = {
   NO_CONFIG_FOR_PLUGIN: "No active config to create plugin",
   NO_AUTH_FOR_PROVIDER: "No current auth for provider",
   PROFILE_NOT_FOUND: "Profile not found",
+  INVALID_AUTH_PROFILE_NAME: "Invalid auth profile name",
   FAILED_OPEN_TERMINAL: "Failed to open terminal",
   NO_TERMINAL: "No terminal emulator found",
   NO_ACCOUNTS_IN_POOL: "No accounts in pool",
@@ -68,6 +77,14 @@ function compareVersions(current, minimum) {
         if (cv < mv) return -1;
     }
     return 0;
+}
+
+function sendErrorResponse(res, err) {
+    const status = err.statusCode || err.status || 500;
+    res.status(status).json({
+        error: err.message,
+        ...(err.code && { code: err.code }),
+    });
 }
 
 // Atomic file write: write to temp file then rename to prevent corruption
@@ -1496,7 +1513,7 @@ app.post('/api/agents', (req, res) => {
     try {
         const { name, config: agentConfig, source, scope } = req.body || {};
         if (!name || typeof name !== 'string') return res.status(400).json({ error: ERROR_CODES.MISSING_AGENT_NAME, code: 'MISSING_AGENT_NAME' });
-        if (!/^[a-zA-Z0-9 _-]+$/.test(name)) return res.status(400).json({ error: ERROR_CODES.INVALID_AGENT_NAME, code: 'INVALID_AGENT_NAME' });
+        if (!isSafeAgentName(name)) return res.status(400).json({ error: ERROR_CODES.INVALID_AGENT_NAME, code: 'INVALID_AGENT_NAME' });
 
         const config = loadConfig() || {};
         if (!config.agent) config.agent = {};
@@ -1551,6 +1568,9 @@ app.put('/api/agents/:name', (req, res) => {
     try {
         const { name } = req.params;
         const { config: agentConfig } = req.body || {};
+        if (!isSafeAgentName(name)) {
+            return res.status(400).json({ error: ERROR_CODES.INVALID_AGENT_NAME, code: 'INVALID_AGENT_NAME' });
+        }
 
         const normalizedConfig = { ...(agentConfig || {}) };
         if (normalizedConfig.permissions && !normalizedConfig.permission) {
@@ -1595,6 +1615,10 @@ app.put('/api/agents/:name', (req, res) => {
 app.delete('/api/agents/:name', (req, res) => {
     try {
         const { name } = req.params;
+        if (!isSafeAgentName(name)) {
+            return res.status(400).json({ error: ERROR_CODES.INVALID_AGENT_NAME, code: 'INVALID_AGENT_NAME' });
+        }
+
         const config = loadConfig() || {};
 
         if (config.agent && config.agent[name]) {
@@ -1617,6 +1641,10 @@ app.delete('/api/agents/:name', (req, res) => {
 app.post('/api/agents/:name/toggle', (req, res) => {
     try {
         const { name } = req.params;
+        if (!isSafeAgentName(name)) {
+            return res.status(400).json({ error: ERROR_CODES.INVALID_AGENT_NAME, code: 'INVALID_AGENT_NAME' });
+        }
+
         const studio = loadStudioConfig();
         const disabled = new Set(studio.disabledAgents || []);
         if (disabled.has(name)) disabled.delete(name); else disabled.add(name);
@@ -1757,6 +1785,7 @@ app.get('/api/backup', (req, res) => {
 app.post('/api/restore', (req, res) => {
     try {
         const { studioConfig, opencodeConfig, skills, plugins } = req.body;
+        assertSafeBackupResourceNames(req.body || {});
         
         if (studioConfig) saveStudioConfig(studioConfig);
         if (opencodeConfig) saveConfig(opencodeConfig);
@@ -1781,7 +1810,7 @@ app.post('/api/restore', (req, res) => {
         
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendErrorResponse(res, err);
     }
 });
 
@@ -1854,6 +1883,8 @@ function buildBackupData() {
 }
 
 function restoreFromBackup(backup, studio) {
+    assertSafeBackupResourceNames(backup || {});
+
     if (backup.studioConfig) {
         const merged = { 
             ...backup.studioConfig, 
@@ -2049,7 +2080,7 @@ app.post('/api/sync/pull', async (req, res) => {
         
         res.json({ success: true, timestamp: backup.timestamp, skills: (backup.skills || []).length, plugins: (backup.plugins || []).length });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendErrorResponse(res, err);
     }
 });
 
@@ -2098,7 +2129,7 @@ app.post('/api/sync/auto', async (req, res) => {
         
         res.json({ action: 'none', reason: 'local is current' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendErrorResponse(res, err);
     }
 });
 
@@ -3181,7 +3212,7 @@ app.get('/api/skills', (req, res) => {
 
 app.get('/api/skills/:name', (req, res) => {
     const { name } = req.params;
-    if (!/^[a-zA-Z0-9_-s]+$/.test(name)) {
+    if (!isSafeSkillName(name)) {
         return res.status(400).json({ error: ERROR_CODES.INVALID_SKILL_NAME, code: 'INVALID_SKILL_NAME' });
     }
 
@@ -3202,7 +3233,7 @@ app.get('/api/skills/:name', (req, res) => {
 
 app.post('/api/skills/:name', (req, res) => {
     const { name } = req.params;
-    if (!/^[a-zA-Z0-9_-s]+$/.test(name)) {
+    if (!isSafeSkillName(name)) {
         return res.status(400).json({ error: ERROR_CODES.INVALID_SKILL_NAME, code: 'INVALID_SKILL_NAME' });
     }
 
@@ -3242,7 +3273,7 @@ app.post('/api/skills/:name', (req, res) => {
 
 app.delete('/api/skills/:name', (req, res) => {
     const { name } = req.params;
-    if (!/^[a-zA-Z0-9_-s]+$/.test(name)) {
+    if (!isSafeSkillName(name)) {
         return res.status(400).json({ error: ERROR_CODES.INVALID_SKILL_NAME, code: 'INVALID_SKILL_NAME' });
     }
 
@@ -3270,6 +3301,10 @@ app.delete('/api/skills/:name', (req, res) => {
 
 app.post('/api/skills/:name/toggle', (req, res) => {
     const { name } = req.params;
+    if (!isSafeSkillName(name)) {
+        return res.status(400).json({ error: ERROR_CODES.INVALID_SKILL_NAME, code: 'INVALID_SKILL_NAME' });
+    }
+
     const studio = loadStudioConfig();
     studio.disabledSkills = studio.disabledSkills || [];
     
@@ -3342,6 +3377,9 @@ app.get('/api/plugins', (req, res) => {
 
 app.get('/api/plugins/:name', (req, res) => {
     const { name } = req.params;
+    if (!isSafePluginName(name)) {
+        return res.status(400).json({ error: ERROR_CODES.INVALID_PLUGIN_NAME, code: 'INVALID_PLUGIN_NAME' });
+    }
 
     for (const dirInfo of getPluginDirs()) {
         const possiblePaths = [
@@ -3364,6 +3402,9 @@ app.get('/api/plugins/:name', (req, res) => {
 app.post('/api/plugins/:name', (req, res) => {
     const { name } = req.params;
     const { content } = req.body;
+    if (!isSafePluginName(name)) {
+        return res.status(400).json({ error: ERROR_CODES.INVALID_PLUGIN_NAME, code: 'INVALID_PLUGIN_NAME' });
+    }
 
     for (const dirInfo of getPluginDirs()) {
         const possiblePaths = [
@@ -3400,6 +3441,9 @@ app.post('/api/plugins/:name', (req, res) => {
 
 app.delete('/api/plugins/:name', (req, res) => {
     const { name } = req.params;
+    if (!isSafePluginName(name)) {
+        return res.status(400).json({ error: ERROR_CODES.INVALID_PLUGIN_NAME, code: 'INVALID_PLUGIN_NAME' });
+    }
 
     let deleted = false;
     for (const dirInfo of getPluginDirs()) {
@@ -3566,6 +3610,12 @@ const listAuthProfiles = (p, activePlugin) => {
     } catch { return []; }
 };
 
+function rejectInvalidAuthProfileName(res, name) {
+    if (isSafeAuthProfileName(name)) return false;
+    res.status(400).json({ error: ERROR_CODES.INVALID_AUTH_PROFILE_NAME, code: 'INVALID_AUTH_PROFILE_NAME' });
+    return true;
+}
+
 app.get('/api/auth/providers', (req, res) => {
     const providers = [
         { id: 'google', name: 'Google', type: 'oauth', description: 'Google Gemini API' },
@@ -3697,6 +3747,7 @@ app.post('/api/auth/profiles/:provider', (req, res) => {
     }
 
     const profileName = name || auth[provider].email || `profile-${Date.now()}`;
+    if (rejectInvalidAuthProfileName(res, profileName)) return;
     const profilePath = path.join(dir, `${profileName}.json`);
     atomicWriteFileSync(profilePath, JSON.stringify(auth[provider], null, 2));
 
@@ -3721,6 +3772,7 @@ app.post('/api/auth/profiles/:provider/:name/activate', (req, res) => {
         ? ('google.antigravity')
         : provider;
     
+    if (rejectInvalidAuthProfileName(res, name)) return;
     const dir = getProfileDir(provider, activePlugin);
     const profilePath = path.join(dir, `${name}.json`);
     if (!fs.existsSync(profilePath)) return res.status(404).json({ error: ERROR_CODES.PROFILE_NOT_FOUND, code: 'PROFILE_NOT_FOUND' });
@@ -3837,6 +3889,7 @@ app.delete('/api/auth/profiles/:provider/:name', (req, res) => {
         ? ('google.antigravity')
         : provider;
     
+    if (rejectInvalidAuthProfileName(res, name)) return;
     const dir = getProfileDir(provider, activePlugin);
     const profilePath = path.join(dir, `${name}.json`);
     console.log(`[Auth] Target path: ${profilePath}, Exists: ${fs.existsSync(profilePath)}`);
@@ -3950,6 +4003,8 @@ app.put('/api/auth/profiles/:provider/:name', (req, res) => {
         ? ('google.antigravity')
         : provider;
     
+    if (rejectInvalidAuthProfileName(res, name)) return;
+    if (rejectInvalidAuthProfileName(res, newName)) return;
     const dir = getProfileDir(provider, activePlugin);
     const oldPath = path.join(dir, `${name}.json`);
     const newPath = path.join(dir, `${newName}.json`);
@@ -4178,6 +4233,10 @@ function importCurrentAuthToPool(provider) {
     }
 
     const name = email || creds.accountId || creds.id || 'primary';
+    if (!isSafeAuthProfileName(name)) {
+        console.warn(`[Auth] Skipping ${provider} pool sync for invalid profile name.`);
+        return;
+    }
     const profileDir = path.join(AUTH_PROFILES_DIR, provider);
     if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
 
@@ -4237,6 +4296,10 @@ function importCurrentGoogleAuthToPool() {
     if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
 
     const email = creds.email;
+    if (!isSafeAuthProfileName(email)) {
+        console.warn('[Auth] Skipping Google pool sync for invalid profile name.');
+        return;
+    }
     const profilePath = path.join(profileDir, `${email}.json`);
 
     // Check if we need to sync (new account or updated tokens/metadata)
@@ -4331,6 +4394,10 @@ function syncAntigravityPool() {
     const seen = new Set();
     allAccounts.forEach((account, idx) => {
         const name = account.email || `account-${idx + 1}`;
+        if (!isSafeAuthProfileName(name)) {
+            console.warn('[Pool] Skipping Antigravity account with invalid profile name.');
+            return;
+        }
         seen.add(name);
         const profilePath = path.join(profileDir, `${name}.json`);
         if (!fs.existsSync(profilePath)) {
@@ -4593,6 +4660,8 @@ app.put('/api/auth/pool/:name/cooldown', (req, res) => {
     const { name } = req.params;
     let { duration, provider = 'google', rule } = req.body;
     
+    if (rejectInvalidAuthProfileName(res, name)) return;
+
     if (rule) {
         const studio = loadStudioConfig();
         const r = (studio.cooldownRules || []).find(cr => cr.name === rule);
@@ -4624,6 +4693,8 @@ app.delete('/api/auth/pool/:name/cooldown', (req, res) => {
     const { name } = req.params;
     const provider = req.query.provider || 'google';
     
+    if (rejectInvalidAuthProfileName(res, name)) return;
+
     const activePlugin = getActiveGooglePlugin();
     const namespace = provider === 'google'
         ? ('google.antigravity')
@@ -4643,6 +4714,8 @@ app.post('/api/auth/pool/:name/usage', (req, res) => {
     const { name } = req.params;
     const { provider = 'google' } = req.body;
     
+    if (rejectInvalidAuthProfileName(res, name)) return;
+
     const activePlugin = getActiveGooglePlugin();
     const namespace = provider === 'google'
         ? ('google.antigravity')
@@ -4670,6 +4743,8 @@ app.put('/api/auth/pool/:name/metadata', (req, res) => {
     const { name } = req.params;
     const { provider = 'google', email, createdAt, projectId, tier } = req.body;
     
+    if (rejectInvalidAuthProfileName(res, name)) return;
+
     const activePlugin = getActiveGooglePlugin();
     const namespace = provider === 'google'
         ? ('google.antigravity')
@@ -5218,6 +5293,9 @@ app.post('/api/auth/google/start', async (req, res) => {
             const profileDir = path.join(AUTH_PROFILES_DIR, namespace);
             if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
             const profileName = email || `google-${Date.now()}`;
+            if (!isSafeAuthProfileName(profileName)) {
+                throw new Error('Invalid auth profile name');
+            }
             const profilePath = path.join(profileDir, `${profileName}.json`);
             
             console.log(`[Auth] Saving profile to: ${profilePath}`);
