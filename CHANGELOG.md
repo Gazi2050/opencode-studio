@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.3] - 2026-07-16
+
+### Added
+- **Korean Translation**: Add Korean language support to OpenCode Studio (#52).
+
+### Fixed
+- **JSONC Configuration**: Load OpenCode configuration files containing comments and trailing commas (#53).
+
 ## [2.4.2] - 2026-07-08
 
 ### Security

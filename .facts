@@ -38,3 +38,8 @@
 - label: custom provider saves preserve unedited OpenCode provider and model fields
   command: grep -q 'source: provider' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'source: model' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'provider.source' client-next/src/components/custom-provider-model-editor.tsx && grep -q 'model.source' client-next/src/components/custom-provider-model-editor.tsx
   tags: [spec, implemented]
+
+# releases
+- label: the 2.4.3 release publishes JSONC configuration support and Korean translation
+  command: grep -q '"version": "2.4.3"' package.json server/package.json && grep -q '## \[2.4.3\] - 2026-07-16' CHANGELOG.md && grep -q 'JSONC Configuration' CHANGELOG.md && grep -q 'Korean Translation' CHANGELOG.md
+  tags: [implemented]
