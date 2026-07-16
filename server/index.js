@@ -1099,7 +1099,7 @@ const loadConfig = () => {
     const configPath = getConfigPath();
     if (!configPath || !fs.existsSync(configPath)) return null;
     try {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        const config = configProviders.loadConfigFileSync(configPath);
         const studioConfig = loadStudioConfig();
         if (studioConfig.activeGooglePlugin === 'antigravity' && !config.small_model) {
             config.small_model = "google/gemini-3-flash";

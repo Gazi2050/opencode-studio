@@ -171,6 +171,10 @@ const parseJsonText = (text, { parseJsonc } = {}) => {
     return value;
 };
 
+const loadConfigFileSync = (filePath) => {
+    return parseJsonText(fs.readFileSync(filePath, 'utf8'));
+};
+
 const toAbsolutePath = (baseRoot, basename) => normalizePath(path.join(baseRoot, basename));
 
 const resolveRoots = ({ roots = [], customPaths = [] } = {}) => {
@@ -554,6 +558,7 @@ module.exports = {
     isFileSync,
     isDirectorySync,
     parseJsonText,
+    loadConfigFileSync,
     resolveRoots,
     buildCandidatesForRule,
     findExistingPaths,

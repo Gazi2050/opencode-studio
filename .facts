@@ -21,6 +21,9 @@
 - label: local development pages do not add local network target address space annotations when calling the local backend
   command: grep -q 'window.location.protocol !== .https:.' client-next/src/lib/api.ts && grep -q 'return undefined;' client-next/src/lib/api.ts
   tags: [implemented]
+- label: the config API loads opencode.jsonc files containing comments and trailing commas
+  command: cd server && npx vitest run lib/config-providers.test.js
+  tags: [implemented]
 
 # custom-providers
 - label: settings exposes a graphical custom providers and models editor

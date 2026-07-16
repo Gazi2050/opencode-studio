@@ -28,7 +28,32 @@ describe('config provider seams', () => {
         expect(inventory.current).toBe(current);
     });
 
-    it('parses malformed json with injected jsonc parser and accepts jsonc comments and trailing commas', () => {
+    it('parses jsonc comments and trailing commas by default', () => {
+        const text = ['{', '  // comment', '  "name": "demo",', '  "items": [1, 2,],', '}'].join('\n');
+
+        expect(providers.parseJsonText(text)).toEqual({ name: 'demo', items: [1, 2] });
+    });
+
+    it('loads jsonc config files with comments and trailing commas', () => {
+        const tempDir = makeTempDir();
+        const configPath = path.join(tempDir, 'opencode.jsonc');
+        fs.writeFileSync(configPath, [
+            '{',
+            '  // OpenCode accepts comments in its JSONC config.',
+            '  "provider": {',
+            '    "ascend": {',
+            '      "reasoning": true,',
+            '    },',
+            '  },',
+            '}',
+        ].join('\n'));
+
+        expect(providers.loadConfigFileSync(configPath)).toEqual({
+            provider: { ascend: { reasoning: true } },
+        });
+    });
+
+    it('parses malformed json with injected jsonc parser', () => {
         expect(() => providers.parseJsonText('{"name":', {})).toThrow(SyntaxError);
 
         const text = ['{', '  // comment', '  "name": "demo",', '  "items": [1, 2,],', '}'].join('\n');
